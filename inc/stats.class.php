@@ -156,6 +156,14 @@ class PluginStats extends CommonDBTM {
         $resultDue = $DB->query($sqlDue) or die('Erro ao retornar o total de chamados');
         $totalDue = $DB->result($resultDue, 0, 'due');
 
+        //links para lista de chamados
+        $href_cham = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=notclosed&itemtype=Ticket&start=0";
+        $href_clos  = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=6&itemtype=Ticket&start=0";
+        $href_pro  = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=process&itemtype=Ticket&start=0";
+        $href_solv = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=5&itemtype=Ticket&start=0";
+        $href_pend = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=4&itemtype=Ticket&start=0";
+        $href_due  = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=82&criteria[0][searchtype]=equals&criteria[0][value]=1&criteria[1][link]=AND&criteria[1][field]=12&criteria[1][searchtype]=equals&criteria[1][value]=notold&itemtype=Ticket&start=0";
+
         echo '<style>
                 #tab_stats {
                     font-family: \'Helvetica Neue\',Helvetica,Arial,sans-serif; 
@@ -182,12 +190,12 @@ class PluginStats extends CommonDBTM {
               </style>';
         echo '<table id="tab_stats">';
         echo '<tr>';
-        echo '<td class="border"><span><a style="'.$colorTot.'" href="">' . $totalGeral . '</a> </span> </p><span style="color:#333; font-size:14pt;"> '. _nx('ticket','Opened','Opened',2) . '</span></td>';
-        echo '<td class="border"><span><a style="'.$colorFec.'" href="">' . $totalClosed . '</a> </span> </p><span style="color:#333; font-size:14pt;"> '. Ticket::getStatus(6) .'s </span></td>';
-        echo '<td class="border"><span><a style="'.$colorPro.'" href="">' . $totalPro . '</a></span> </p><span style="color:#333; font-size:14pt;"> '. __('Processing') . ' </span></td>';
-        echo '<td class="border"><span><a style="'.$colorSol.'" href="">' . $totalSol . '</a></span> </p><span style="color:#333; font-size:14pt;"> '. Ticket::getStatus(5) .'</span></td>';
-        echo '<td class="border"><span><a style="'.$colorPen.'" href="">' . $totalPen . '</a> </span> </p><span style="color:#333; font-size:14pt;"> '. Ticket::getStatus(4) .' </span></td>';
-        echo '<td><span><a style="'.$colorDue.'" href="">' . $totalDue . '</a>  </span> </p><span style="color:#333; font-size:14pt;"> '. __('Late') . ' </span></td>';
+        echo '<td class="border"><span><a style="'.$colorTot.'" href="'.$href_cham.'">' . $totalGeral . '</a> </span> </p><span style="color:#333; font-size:14pt;"> '. _nx('ticket','Opened','Opened',2) . '</span></td>';
+        echo '<td class="border"><span><a style="'.$colorFec.'" href="'.$href_clos.'">' . $totalClosed . '</a> </span> </p><span style="color:#333; font-size:14pt;"> '. Ticket::getStatus(6) .'s </span></td>';
+        echo '<td class="border"><span><a style="'.$colorPro.'" href="'.$href_pro.'">' . $totalPro . '</a></span> </p><span style="color:#333; font-size:14pt;"> '. __('Processing') . ' </span></td>';
+        echo '<td class="border"><span><a style="'.$colorSol.'" href="'.$href_solv.'">' . $totalSol . '</a></span> </p><span style="color:#333; font-size:14pt;"> '. Ticket::getStatus(5) .'</span></td>';
+        echo '<td class="border"><span><a style="'.$colorPen.'" href="'.$href_pend.'">' . $totalPen . '</a> </span> </p><span style="color:#333; font-size:14pt;"> '. Ticket::getStatus(4) .' </span></td>';
+        echo '<td><span><a style="'.$colorDue.'" href="'.$href_due.'">' . $totalDue . '</a>  </span> </p><span style="color:#333; font-size:14pt;"> '. __('Late') . ' </span></td>';
         echo '</tr>';
         echo '</table>';
 
