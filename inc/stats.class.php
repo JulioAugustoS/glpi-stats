@@ -57,6 +57,7 @@ class PluginStats extends CommonDBTM {
         $glpiEntity     = $_SESSION['glpiactiveentities'];
 
         $colorTot = "color: #337AB7";
+        $colorNew = "color: #333";
         $colorFec = "color: #555";
         $colorPro = "color: #49BF8F";
         $colorSol = "color: #000";
@@ -74,7 +75,7 @@ class PluginStats extends CommonDBTM {
 	
             $entities = Profile_User::getUserEntities($_SESSION['glpiID'], true);
             
-            if($activeEntity != 0 and $profileId != "6"){		
+            if($activeEntity != 0 && $profileId != "6"){		
                 $ent = implode(",", $glpiEntity);
                 $entidade = "AND entities_id IN (".$ent.")";
                 $getuser = "admin";
@@ -103,6 +104,16 @@ class PluginStats extends CommonDBTM {
             ";
         $resultTotal = $DB->query($sqlTotal) or die('Erro ao retornar o total de chamados');
         $totalGeral = $DB->result($resultTotal, 0, 'total');
+
+        // Total Novos
+        $sqlNew = "SELECT COUNT(id) AS total
+                FROM glpi_tickets
+                WHERE is_deleted = 0
+                AND status = 1
+                ".$entidade."
+            ";
+        $resultNew = $DB->query($sqlNew) or die('Erro ao retornar o total de chamados');
+        $totalNew = $DB->result($resultNew, 0, 'total');
 
         // Total Fechados
         $sqlClosed = "SELECT COUNT(id) AS total
@@ -158,6 +169,7 @@ class PluginStats extends CommonDBTM {
 
         //links para lista de chamados
         $href_cham = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=notclosed&itemtype=Ticket&start=0";
+        $href_new  = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=1&itemtype=Ticket&start=0";
         $href_clos  = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=6&itemtype=Ticket&start=0";
         $href_pro  = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=process&itemtype=Ticket&start=0";
         $href_solv = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=5&itemtype=Ticket&start=0";
@@ -191,6 +203,7 @@ class PluginStats extends CommonDBTM {
         echo '<table id="tab_stats">';
         echo '<tr>';
         echo '<td class="border"><span><a style="'.$colorTot.'" href="'.$href_cham.'">' . $totalGeral . '</a> </span> </p><span style="color:#333; font-size:14pt;"> '. _nx('ticket','Opened','Opened',2) . '</span></td>';
+        echo '<td class="border"><span><a style="'.$colorNew.'" href="'.$href_new.'">' . $totalNew . '</a> </span> </p><span style="color:#333; font-size:14pt;"> '. Ticket::getStatus(1) .'s </span></td>';
         echo '<td class="border"><span><a style="'.$colorFec.'" href="'.$href_clos.'">' . $totalClosed . '</a> </span> </p><span style="color:#333; font-size:14pt;"> '. Ticket::getStatus(6) .'s </span></td>';
         echo '<td class="border"><span><a style="'.$colorPro.'" href="'.$href_pro.'">' . $totalPro . '</a></span> </p><span style="color:#333; font-size:14pt;"> '. __('Processing') . ' </span></td>';
         echo '<td class="border"><span><a style="'.$colorSol.'" href="'.$href_solv.'">' . $totalSol . '</a></span> </p><span style="color:#333; font-size:14pt;"> '. Ticket::getStatus(5) .'</span></td>';
