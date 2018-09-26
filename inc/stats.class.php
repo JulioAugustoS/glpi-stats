@@ -47,6 +47,65 @@ endif;
 
 class PluginStats extends CommonDBTM {
 
+    static function groupUsers($userId){
+
+        global $DB;
+
+        $sqlUser = "SELECT DISTINCT `glpi_groups`.`id` AS `Group`
+                    FROM `glpi_groups`
+                    LEFT JOIN `glpi_groups_users`
+                        ON (`glpi_groups_users`.`groups_id` = `glpi_groups`.`id`)
+                    WHERE `glpi_groups_users`.`users_id` = '$userId'
+                    ";
+        $resultUser = $DB->query($sqlUser) or die('Erro ao buscar os grupos do usuario');
+        $resultGroups = $DB->fetch_assoc($resultUser);
+
+        return $resultGroups['Group'];
+
+    }
+
+    static function countTickets($status, $group){
+
+        global $DB;
+
+        $sql = "SELECT COUNT(a.id) AS ID
+                FROM glpi_tickets a 
+                    LEFT JOIN glpi_entities b ON (a.entities_id = b.id)
+                    LEFT JOIN glpi_tickets_users c ON (a.id = c.tickets_id AND c.type = 1)
+                    LEFT JOIN glpi_users d ON (c.users_id = d.id)
+                    LEFT JOIN glpi_itilcategories p ON (a.itilcategories_id = p.id)
+                    LEFT JOIN glpi_tickets_users f ON (a.id = f.tickets_id AND f.type = 2)
+                    LEFT JOIN glpi_users g ON (f.users_id = g.id)
+                    LEFT JOIN glpi_groups_tickets h ON (a.id = h.tickets_id AND h.type = 2)
+                    LEFT JOIN glpi_groups i ON (h.groups_id = i.id)
+                WHERE a.is_deleted = 0 AND (a.status IN ($status) AND (i.id = '$group'))";
+        $result = $DB->query($sql) or die('Erro ao retornar os dados');
+        $total = $DB->result($result, 0, 'ID');
+
+        return $total;
+
+    }
+
+    static function countTiketsAtrasados($grupo){
+
+        global $DB;
+
+        $sqlDue = "SELECT COUNT(a.id) AS due
+                    FROM glpi_tickets a
+                    LEFT JOIN glpi_groups_tickets b ON (b.tickets_id = a.id)
+                    WHERE a.status NOT IN (4,5,6) 
+                    AND a.is_deleted = 0
+                    AND a.time_to_resolve IS NOT NULL
+                    AND a.time_to_resolve < NOW()
+                    AND b.groups_id = '$grupo'
+                ";
+        $resultDue = $DB->query($sqlDue) or die('Erro ao retornar o total de chamados');
+        $totalDue = $DB->result($resultDue, 0, 'due');
+
+        return $totalDue;
+
+    }
+
     static function displayStats(){
 
         global $CFG_GLPI, $DB;
@@ -71,110 +130,38 @@ class PluginStats extends CommonDBTM {
             $arrPro[] = $row['id'];
         endwhile;
 
-        if(in_array($profileId, $arrPro)){
-	
-            $entities = Profile_User::getUserEntities($_SESSION['glpiID'], true);
-            
-            if($activeEntity != 0 && $profileId != "6"){		
-                $ent = implode(",", $glpiEntity);
-                $entidade = "AND entities_id IN (".$ent.")";
-                $getuser = "admin";
-            }elseif($profileId == "6"){				
-                $ent = $activeEntity;
-                $entidade = "AND entities_id IN (".$ent.")";
-                $getuser = 6;
-            }else{				
-                $ent = implode(",", $entities);
-                $entidade = "AND entities_id IN (".$ent.")";
-                $getuser = 0;
-            }	
-
-        }else{
-            $ent = implode(",", $glpiEntity);
-            $entidade = "AND entities_id IN (".$ent.")";
-            $getuser = "AND id IN = " . $userId . "";
-        }
+        // Retorna o grupo principal do usuario
+        $grupoUserId = PluginStats::groupUsers($userId);
 
         // Total Geral
-        $sqlTotal = "SELECT COUNT(id) AS total
-                FROM glpi_tickets
-                WHERE is_deleted = 0
-                AND status NOT IN (6)
-                ".$entidade."
-            ";
-        $resultTotal = $DB->query($sqlTotal) or die('Erro ao retornar o total de chamados');
-        $totalGeral = $DB->result($resultTotal, 0, 'total');
-
+        $totalGeral = PluginStats::countTickets('1,2,3,4', $grupoUserId);
+        
         // Total Novos
-        $sqlNew = "SELECT COUNT(id) AS total
-                FROM glpi_tickets
-                WHERE is_deleted = 0
-                AND status = 1
-                ".$entidade."
-            ";
-        $resultNew = $DB->query($sqlNew) or die('Erro ao retornar o total de chamados');
-        $totalNew = $DB->result($resultNew, 0, 'total');
+        $totalNew = PluginStats::countTickets('1', $grupoUserId);
 
         // Total Fechados
-        $sqlClosed = "SELECT COUNT(id) AS total
-                FROM glpi_tickets
-                WHERE is_deleted = 0
-                AND status = 6
-                ".$entidade."
-            ";
-        $resultClosed = $DB->query($sqlClosed) or die('Erro ao retornar o total de chamados');
-        $totalClosed = $DB->result($resultClosed, 0, 'total');
+        $totalClosed = PluginStats::countTickets('6', $grupoUserId);
 
         // Total Processando
-        $sqlPro = "SELECT COUNT(id) AS total
-                FROM glpi_tickets
-                WHERE is_deleted = 0
-                AND status NOT IN (1,4,5,6)
-                ".$entidade."
-            ";
-        $resultPro = $DB->query($sqlPro) or die('Erro ao retornar o total de chamados');
-        $totalPro = $DB->result($resultPro, 0, 'total');
+        $totalPro = PluginStats::countTickets('2,3', $grupoUserId);
 
         // Total Solucionado
-        $sqlSol = "SELECT COUNT(id) AS total
-                FROM glpi_tickets
-                WHERE is_deleted = 0
-                AND status = 5
-                ".$entidade."
-            ";
-        $resultSol = $DB->query($sqlSol) or die('Erro ao retornar o total de chamados');
-        $totalSol = $DB->result($resultSol, 0, 'total');
+        $totalSol = PluginStats::countTickets('5', $grupoUserId);
 
         // Total Pendentes
-        $sqlPen = "SELECT COUNT(id) AS total
-                FROM glpi_tickets
-                WHERE is_deleted = 0
-                AND status = 4
-                ".$entidade."
-            ";
-        $resultPen = $DB->query($sqlPen) or die('Erro ao retornar o total de chamados');
-        $totalPen = $DB->result($resultPen, 0, 'total');
+        $totalPen = PluginStats::countTickets('4', $grupoUserId);
 
         // Total Atrasados
-        $sqlDue = "SELECT COUNT(id) AS due
-                FROM glpi_tickets
-                WHERE status NOT IN (4,5,6) 
-                AND is_deleted = 0
-                AND time_to_resolve IS NOT NULL
-                AND time_to_resolve < NOW()
-                ".$entidade."
-            ";
-        $resultDue = $DB->query($sqlDue) or die('Erro ao retornar o total de chamados');
-        $totalDue = $DB->result($resultDue, 0, 'due');
+        $totalDue = PluginStats::countTiketsAtrasados($grupoUserId);
 
         //links para lista de chamados
-        $href_cham = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=notclosed&itemtype=Ticket&start=0";
-        $href_new  = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=1&itemtype=Ticket&start=0";
-        $href_clos  = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=6&itemtype=Ticket&start=0";
-        $href_pro  = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=process&itemtype=Ticket&start=0";
-        $href_solv = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=5&itemtype=Ticket&start=0";
-        $href_pend = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=12&criteria[0][searchtype]=equals&criteria[0][value]=4&itemtype=Ticket&start=0";
-        $href_due  = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&criteria[0][field]=82&criteria[0][searchtype]=equals&criteria[0][value]=1&criteria[1][link]=AND&criteria[1][field]=12&criteria[1][searchtype]=equals&criteria[1][value]=notold&itemtype=Ticket&start=0";
+        $href_cham = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&as_map=0&criteria%5B0%5D%5Bfield%5D=12&criteria%5B0%5D%5Bsearchtype%5D=equals&criteria%5B0%5D%5Bvalue%5D=notclosed&criteria%5B1%5D%5Blink%5D=AND&criteria%5B1%5D%5Bfield%5D=8&criteria%5B1%5D%5Bsearchtype%5D=equals&criteria%5B1%5D%5Bvalue%5D=mygroups&search=Pesquisar&itemtype=Ticket&start=0";
+        $href_new  = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&as_map=0&criteria%5B0%5D%5Bfield%5D=12&criteria%5B0%5D%5Bsearchtype%5D=equals&criteria%5B0%5D%5Bvalue%5D=1&criteria%5B1%5D%5Blink%5D=AND&criteria%5B1%5D%5Bfield%5D=8&criteria%5B1%5D%5Bsearchtype%5D=equals&criteria%5B1%5D%5Bvalue%5D=mygroups&search=Pesquisar&itemtype=Ticket&start=0";
+        $href_clos  = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&as_map=0&criteria%5B0%5D%5Bfield%5D=12&criteria%5B0%5D%5Bsearchtype%5D=equals&criteria%5B0%5D%5Bvalue%5D=6&criteria%5B1%5D%5Blink%5D=AND&criteria%5B1%5D%5Bfield%5D=8&criteria%5B1%5D%5Bsearchtype%5D=equals&criteria%5B1%5D%5Bvalue%5D=mygroups&search=Pesquisar&itemtype=Ticket&start=0";
+        $href_pro  = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&as_map=0&criteria%5B0%5D%5Bfield%5D=12&criteria%5B0%5D%5Bsearchtype%5D=equals&criteria%5B0%5D%5Bvalue%5D=process&criteria%5B1%5D%5Blink%5D=AND&criteria%5B1%5D%5Bfield%5D=8&criteria%5B1%5D%5Bsearchtype%5D=equals&criteria%5B1%5D%5Bvalue%5D=mygroups&search=Pesquisar&itemtype=Ticket&start=0";
+        $href_solv = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&as_map=0&criteria%5B0%5D%5Bfield%5D=12&criteria%5B0%5D%5Bsearchtype%5D=equals&criteria%5B0%5D%5Bvalue%5D=5&criteria%5B1%5D%5Blink%5D=AND&criteria%5B1%5D%5Bfield%5D=8&criteria%5B1%5D%5Bsearchtype%5D=equals&criteria%5B1%5D%5Bvalue%5D=mygroups&search=Pesquisar&itemtype=Ticket&start=0";
+        $href_pend = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&as_map=0&criteria%5B0%5D%5Bfield%5D=12&criteria%5B0%5D%5Bsearchtype%5D=equals&criteria%5B0%5D%5Bvalue%5D=4&criteria%5B1%5D%5Blink%5D=AND&criteria%5B1%5D%5Bfield%5D=8&criteria%5B1%5D%5Bsearchtype%5D=equals&criteria%5B1%5D%5Bvalue%5D=mygroups&search=Pesquisar&itemtype=Ticket&start=0";
+        $href_due  = $CFG_GLPI["root_doc"]."/front/ticket.php?is_deleted=0&as_map=0&criteria%5B0%5D%5Bfield%5D=82&criteria%5B0%5D%5Bsearchtype%5D=equals&criteria%5B0%5D%5Bvalue%5D=1&criteria%5B1%5D%5Blink%5D=AND&criteria%5B1%5D%5Bfield%5D=12&criteria%5B1%5D%5Bsearchtype%5D=equals&criteria%5B1%5D%5Bvalue%5D=notold&criteria%5B2%5D%5Blink%5D=AND&criteria%5B2%5D%5Bfield%5D=8&criteria%5B2%5D%5Bsearchtype%5D=equals&criteria%5B2%5D%5Bvalue%5D=mygroups&search=Pesquisar&itemtype=Ticket&start=0";
 
         echo '<style>
                 #tab_stats {
@@ -203,8 +190,8 @@ class PluginStats extends CommonDBTM {
         echo '<table id="tab_stats">';
         echo '<tr>';
         echo '<td class="border"><span><a style="'.$colorTot.'" href="'.$href_cham.'">' . $totalGeral . '</a> </span> </p><span style="color:#333; font-size:14pt;"> '. _nx('ticket','Opened','Opened',2) . '</span></td>';
-        echo '<td class="border"><span><a style="'.$colorNew.'" href="'.$href_new.'">' . $totalNew . '</a> </span> </p><span style="color:#333; font-size:14pt;"> '. Ticket::getStatus(1) .'s </span></td>';
-        echo '<td class="border"><span><a style="'.$colorFec.'" href="'.$href_clos.'">' . $totalClosed . '</a> </span> </p><span style="color:#333; font-size:14pt;"> '. Ticket::getStatus(6) .'s </span></td>';
+        echo '<td class="border"><span><a style="'.$colorNew.'" href="'.$href_new.'">' . $totalNew . '</a> </span> </p><span style="color:#333; font-size:14pt;"> '. Ticket::getStatus(1) .' </span></td>';
+        echo '<td class="border"><span><a style="'.$colorFec.'" href="'.$href_clos.'">' . $totalClosed . '</a> </span> </p><span style="color:#333; font-size:14pt;"> '. Ticket::getStatus(6) .' </span></td>';
         echo '<td class="border"><span><a style="'.$colorPro.'" href="'.$href_pro.'">' . $totalPro . '</a></span> </p><span style="color:#333; font-size:14pt;"> '. __('Processing') . ' </span></td>';
         echo '<td class="border"><span><a style="'.$colorSol.'" href="'.$href_solv.'">' . $totalSol . '</a></span> </p><span style="color:#333; font-size:14pt;"> '. Ticket::getStatus(5) .'</span></td>';
         echo '<td class="border"><span><a style="'.$colorPen.'" href="'.$href_pend.'">' . $totalPen . '</a> </span> </p><span style="color:#333; font-size:14pt;"> '. Ticket::getStatus(4) .' </span></td>';
